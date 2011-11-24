@@ -13,3 +13,7 @@ SEARCH += -Fusrc/linux
 
 all:
 	@$(CMP) $(CMPOPT) $(INC) $(SEARCH) -FUdcu -oout/traffgen src/traffgen.dpr
+
+tools:
+	@$(CMP) $(CMPOPT) $(INC) $(SEARCH) -FUdcu -oout/traffgen src/traffgen.dpr
+
