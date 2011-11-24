@@ -417,7 +417,7 @@ int getmacfromchar(const char *input, mac_addr *mac){
 		tmpparse = strsep(&myinput,mdiv);
 	}
 	free(myinput);
-	return 1;
+	return (i==6) ? 1 : 0;
 }
 
 char *get_ip_char(u_int32_t ip)

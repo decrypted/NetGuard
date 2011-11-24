@@ -1,0 +1,6 @@
+.#*
+*.o
+*.d
+*.bak
+*.so
+compile.h
