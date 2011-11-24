@@ -1,1 +1,5 @@
 *.bak
+*.o
+*.d
+*/compile.h
+
