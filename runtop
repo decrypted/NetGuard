@@ -1,0 +1,15 @@
+#!/bin/bash
+#netguard script
+#Copyright (c) 2011 Daniel Rudolph <daniel at net-guard net>
+LOOP=true
+FILENAME=`tempfile`
+trap "rm -f $FILENAME" exit
+while [ $LOOP ] 
+do
+	TOPP2=`ps -A | grep netguard | awk -F" "  '{ print " -p "$1 }'`;
+	top -S $TOPP1 $TOPP2 $TOPP3 -b -n 1 -d 1 -S | head  -n 20 > $FILENAME
+	clear;
+	cat $FILENAME
+	sleep 1;
+done
+
