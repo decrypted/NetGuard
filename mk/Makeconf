@@ -1,0 +1,161 @@
+#***************************************************************************
+#*   NetGuard Make Config/Tools                                            *
+#*                                                                         *
+#*   Copyright (c) 2011       Daniel Rudolph <daniel at net-guard net>     *
+#*                                                                         *
+#*                                                                         *
+#*   This program is released under a dual license.                        *
+#*   GNU General Public License for open source and educational use and    *
+#*   the Net-Guard Professional License for commercial use.                *
+#*   Details: http://www.net-guard.net/licence                             *
+#*                                                                         *
+#*   For open source and educational use:                                  *
+#*   This program is free software; you can redistribute it and/or modify  *
+#*   it under the terms of the GNU General Public License as published by  *
+#*   the Free Software Foundation; either version 2 of the License, or     *
+#*   (at your option) any later version.                                   *
+#*                                                                         *
+#*   This program is distributed in the hope that it will be useful,       *
+#*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+#*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+#*   GNU General Public License for more details.                          *
+#*                                                                         *
+#*   You should have received a copy of the GNU General Public License     *
+#*   along with this program; if not, write to the                         *
+#*   Free Software Foundation, Inc.,                                       *
+#*   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+#*                                                                         *
+#*   For commercal use:                                                    *
+#*   visit http://www.net-guard.net for details if you need a commercal    *
+#*   license or not. All conditions are listed here:                       *
+#*                 http://www.net-guard.net/licence                        *
+#*                                                                         *
+#*   If you are unsure what licence you can use you should take            *
+#*   the Net-Guard Professional License.                                   *
+#*                                                                         *
+#*                                                                         *
+#*   Inspired from the Fiasco Project                                      *
+#*                                                                         *
+#*************************************************************************** 
+
+ifeq ($(origin _NGDIR_MK_MAKECONF),undefined)
+_NGDIR_MK_MAKECONF=y
+
+SYSTEM_TARGET = $(SYSTEM_TARGET_$(ARCH)) 
+MINCCVER      = 3
+MAXCCVER      = 4.1
+
+#define compiler
+CPP		= g++-4.1
+CC		= gcc-4.1
+#CPP		= g++-3.3
+#CC		= gcc-3.3
+#CPP		= g++-3.4
+#CC		= gcc-3.4
+#CPP		= g++-2.95
+#CC		= gcc-2.95
+#CPP		= g++
+#CC		= gcc
+#CPP		= g++-4.3
+#CC		= gcc-4.3
+
+#CCFLAGS := -Wall -fPIC -g 
+#CPPFLAGS :=  -Wall -fPIC -g 
+MWARNINGS :=  -Wall -Wshadow -Werror -Wsign-compare -Wredundant-decls -Wunused-variable
+CCFLAGS ?= -ggdb $(MWARNINGS)
+CPPFLAGS ?=  -ggdb $(MWARNINGS)
+#CPPFLAGS :=  -ggdb -Wall -Wno-deprecated 
+#CCFLAGS := -ggdb -Wall -ftime-report -fmem-report
+#CPPFLAGS :=  -ggdb -Wall -ftime-report -fmem-report
+#CCFLAGS := -Wall 
+#CPPFLAGS :=-Wall 
+#CCFLAGS := -g3  -O3 -Wall
+#CPPFLAGS :=  -g3  -O3 -Wall
+#CCFLAGS := -Wall
+#CPPFLAGS :=  -Wall
+#CCFLAGS := -O3 -Wall
+
+ifdef OPT
+#CCFLAGS := -g3  -O3 -fomit-frame-pointer -ffast-math -fforce-addr -march=pentium4 $(MWARNINGS)
+CCFLAGS := -g3  -O3 -fomit-frame-pointer $(MWARNINGS) 
+CPPFLAGS :=  -g3  -O3 -fomit-frame-pointer $(MWARNINGS)  -Wno-deprecated
+endif
+
+LN		= ln
+MKDIR		= mkdir -p
+MKFLAGS		+=$(MKFLAGS_$@)
+NM		= $(SYSTEM_TARGET)nm
+OBJCOPY		= $(SYSTEM_TARGET)objcopy
+PWD		= pwd
+RANLIB		= $(SYSTEM_TARGET)ranlib
+RM		= rm -f
+SCRUB		= $(RM) $(wildcard *.old) $(wildcard *~) $(wildcard *.bak) $(wildcard \#*\#)
+SED		= sed
+SHELL		= /bin/bash
+SIZE		= $(SYSTEM_TARGET)size
+STRIP		= $(SYSTEM_TARGET)strip
+TR		= tr
+YACC		= byacc
+UTS_MACHINE	= ${SYSTEM_TARGET}
+CONFIG_SMP	= ""
+#CPPL		= ccmalloc g++ 
+CPPL		= $(CPP)
+CCP		= $(CPP)
+CXX		= $(CPP)
+
+
+.c.o:
+	$(COMPILE.c) $(OUTPUT_OPTION) $<
+.cpp.o:
+	$(COMPILE.cpp) $(OUTPUT_OPTION) $<
+
+COMPILE.c = $(CC) $(CCFLAGS) -c
+COMPILE.cpp = $(CPP) $(CPPFLAGS) -c
+
+
+#check for gcc version >= MINCCVER
+CC_VER		:= $(strip $(shell $(CPP) --version | grep -o "(GCC) [0-9].[0-9]*" | grep -o "[0-9].[0-9]*"))
+ifeq  "$(CC_VER)" ""
+CC_VER		:= $(shell $(CPP) --version|  grep -o "[0-9].[0-9]*.[0-9]" | grep -o "[0-9].[0-9]*"| line)
+endif
+
+
+
+
+#CC_CHECK	:= $(shell echo "$(CC_VER)<=$(MINCCVER)" | bc  )
+CC_CHECK	:= $(shell echo "$(CC_VER)<=$(MINCCVER)" | bc  )
+ifeq "$(CC_CHECK)" "1"
+GCC_ERROR	:= "gcc dont match needs $(CC_VER) < $(MINCCVER)"
+endif
+
+CC_CHECKW	:= $(shell echo "$(CC_VER)>$(MAXCCVER)" | bc  )
+ifeq "$(CC_CHECKW)" "1"
+GCC_WARN	:= "gcc $(CC_VER) is not tested - problems might occur - max version: $(MAXCCVER)"
+endif
+
+
+#if STATIC_LIB=1 is set libnetguard get generated in a static way .a
+#STATIC_LIB	?= 1
+STATIC_LIB	?= 0
+STATIC_TOOL_LIB ?= 1
+
+#make sure the compile.h generation dont cause problems
+COMPILEHGEN = -c true
+
+#coloring on vt100-, xterm-, linux- and console-consoles
+ifneq (,$(findstring ${TERM},vt100 xterm linux console))
+  EMPHSTART = '\033[32m'
+  EMPHSTOP  = '\033[0m'
+else
+  EMPHSTART =
+  EMPHSTOP  =
+endif
+
+#functions that are handy
+absfilename     = $(foreach w,$(1),$(addsuffix /$(notdir $(w)),$(shell cd $(dir $(w)) 2>/dev/null&&pwd)))
+findfile	= $(firstword $(wildcard $(addsuffix /$(1),$(2))))
+INSTALLFILE	?= $(LN) -sf $(call absfilename,$(1)) $(2)
+
+endif	# _NGDIR_MK_MAKECONF undefined
+
+

@@ -1,0 +1,96 @@
+#***************************************************************************
+#*   NetGuard Make Config/Tools for a RELEASE                              *
+#*                                                                         *
+#*   Copyright (c) 2011 Daniel Rudolph <daniel at net-guard net>           *
+#*                                                                         *
+#*                                                                         *
+#*   This program is released under a dual license.                        *
+#*   GNU General Public License for open source and educational use and    *
+#*   the Net-Guard Professional License for commercial use.                *
+#*   Details: http://www.net-guard.net/licence                             *
+#*                                                                         *
+#*   For open source and educational use:                                  *
+#*   This program is free software; you can redistribute it and/or modify  *
+#*   it under the terms of the GNU General Public License as published by  *
+#*   the Free Software Foundation; either version 2 of the License, or     *
+#*   (at your option) any later version.                                   *
+#*                                                                         *
+#*   This program is distributed in the hope that it will be useful,       *
+#*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+#*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+#*   GNU General Public License for more details.                          *
+#*                                                                         *
+#*   You should have received a copy of the GNU General Public License     *
+#*   along with this program; if not, write to the                         *
+#*   Free Software Foundation, Inc.,                                       *
+#*   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+#*                                                                         *
+#*   For commercal use:                                                    *
+#*   visit http://www.net-guard.net for details if you need a commercal    *
+#*   license or not. All conditions are listed here:                       *
+#*                 http://www.net-guard.net/licence                        *
+#*                                                                         *
+#*   If you are unsure what licence you can use you should take            *
+#*   the Net-Guard Professional License.                                   *
+#*                                                                         *
+#*                                                                         *
+#*   Inspired from the Fiasco Project                                      *
+#*                                                                         *
+#*************************************************************************** 
+
+ifeq ($(origin _NGDIR_MK_MAKECONF),undefined)
+_NGDIR_MK_MAKECONF=y
+
+SYSTEM_TARGET = $(SYSTEM_TARGET_$(ARCH)) 
+
+#CCFLAGS := -Wall -fPIC -g 
+#CPPFLAGS :=  -Wall -fPIC -g 
+#CCFLAGS := -ggdb -Wall -ftime-report -fmem-report
+#CPPFLAGS :=  -ggdb -Wall -ftime-report -fmem-report
+CCFLAGS := -Wall 
+CPPFLAGS :=-Wall 
+#CCFLAGS := -g3  -O3 -Wall
+#CPPFLAGS :=  -g3  -O3 -Wall
+#CCFLAGS := -Wall
+#CPPFLAGS :=  -Wall
+#CCFLAGS := -O3 -Wall
+
+LN		= ln
+MKDIR		= mkdir -p
+MKFLAGS		+=$(MKFLAGS_$@)
+NM		= $(SYSTEM_TARGET)nm
+OBJCOPY		= $(SYSTEM_TARGET)objcopy
+PWD		= pwd
+RANLIB		= $(SYSTEM_TARGET)ranlib
+RM		= rm -f
+SCRUB		= $(RM) $(wildcard *.old) $(wildcard *~) $(wildcard *.bak) $(wildcard \#*\#)
+SED		= sed
+SHELL		= /bin/bash
+SIZE		= $(SYSTEM_TARGET)size
+STRIP		= $(SYSTEM_TARGET)strip
+TR		= tr
+YACC		= byacc
+CPP		= g++ 
+UTS_MACHINE	= ${SYSTEM_TARGET}
+CONFIG_SMP	= ""
+
+#make sure the compile.h generation dont cause problems
+COMPILEHGEN = -c true
+
+#coloring on vt100-, xterm-, linux- and console-consoles
+ifneq (,$(findstring ${TERM},vt100 xterm linux console))
+  EMPHSTART = '\033[32m'
+  EMPHSTOP  = '\033[0m'
+else
+  EMPHSTART =
+  EMPHSTOP  =
+endif
+
+#functions that are handy
+absfilename     = $(foreach w,$(1),$(addsuffix /$(notdir $(w)),$(shell cd $(dir $(w)) 2>/dev/null&&pwd)))
+findfile	= $(firstword $(wildcard $(addsuffix /$(1),$(2))))
+INSTALLFILE	?= $(LN) -sf $(call absfilename,$(1)) $(2)
+
+endif	# _NGDIR_MK_MAKECONF undefined
+
+

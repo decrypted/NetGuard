@@ -1,0 +1,17 @@
+__history
+*.so
+*.so.*
+*.bak
+*.a
+CVS
+*.~*
+*.o
+*.d
+.#*
+src/netguard
+compile.h
+*.dat
+Makeconf
+
+
+

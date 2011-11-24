@@ -1,0 +1,112 @@
+#***************************************************************************
+#*   NetGuard Version Info Script                                          *
+#*                                                                         *
+#*   Copyright (c) 2011 Daniel Rudolph <daniel at net-guard net>           *
+#*                                                                         *
+#*                                                                         *
+#*   This program is released under a dual license.                        *
+#*   GNU General Public License for open source and educational use and    *
+#*   the Net-Guard Professional License for commercial use.                *
+#*   Details: http://www.net-guard.net/licence                             *
+#*                                                                         *
+#*   For open source and educational use:                                  *
+#*   This program is free software; you can redistribute it and/or modify  *
+#*   it under the terms of the GNU General Public License as published by  *
+#*   the Free Software Foundation; either version 2 of the License, or     *
+#*   (at your option) any later version.                                   *
+#*                                                                         *
+#*   This program is distributed in the hope that it will be useful,       *
+#*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+#*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+#*   GNU General Public License for more details.                          *
+#*                                                                         *
+#*   You should have received a copy of the GNU General Public License     *
+#*   along with this program; if not, write to the                         *
+#*   Free Software Foundation, Inc.,                                       *
+#*   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+#*                                                                         *
+#*   For commercal use:                                                    *
+#*   visit http://www.net-guard.net for details if you need a commercal    *
+#*   license or not. All conditions are listed here:                       *
+#*                 http://www.net-guard.net/licence                        *
+#*                                                                         *
+#*   If you are unsure what licence you can use you should take            *
+#*   the Net-Guard Professional License.                                   *
+#*                                                                         *
+#*                                                                         *
+#*                                                                         *
+#*  ideas taken from the linux kernel version tool                         *
+#*                                                                         *
+#***************************************************************************
+
+TARGET=$1
+NAME=$2
+ARCH=$3
+SMP=$4
+CC=$5
+STATIC=$6
+
+# Do not expand names
+set -f
+
+if [ -r .version ]; then
+  VERSION=`cat .version`
+else
+  VERSION=0
+  echo 0 > .version
+fi
+
+NetGuard_VERSION="$VERSION"
+if [ -n "$SMP" ] ; then NetGuard_VERSION="$NetGuard_VERSION SMP"; fi
+NetGuard_VERSION="$NetGuard_VERSION"
+
+# Truncate to maximum length
+NetGuard_LEN=64
+NetGuard_TRUNCATE="sed -e s/\(.\{1,$NetGuard_LEN\}\).*/\1/"
+
+# Generate a temporary compile.h
+
+(
+	echo /\* This file is auto generated, version $VERSION \*/
+
+	echo \#define NetGuard_MACHINE \"$ARCH\"
+
+	echo \#define NetGuard_VERSION \"`echo $NetGuard_VERSION | $NetGuard_TRUNCATE`\"
+
+	echo \#define NetGuard_COMPILE_TIME \"`LC_ALL=C LANG=C date +%T`\"
+	echo \#define NetGuard_COMPILE_DATE \"`LC_ALL=C LANG=C date`\"
+	echo \#define NetGuard_COMPILE_BY \"`whoami`\"
+	echo \#define NetGuard_NAME \"$NAME\"
+	echo \#define NetGuard_COMPILE_HOST \"`hostname | $NetGuard_TRUNCATE`\"
+
+	if [ -x /bin/dnsdomainname ]; then
+		echo \#define NetGuard_COMPILE_DOMAIN \"`dnsdomainname | $NetGuard_TRUNCATE`\"
+	elif [ -x /bin/domainname ]; then
+		echo \#define NetGuard_COMPILE_DOMAIN \"`domainname | $NetGuard_TRUNCATE`\"
+	else
+		echo \#define NetGuard_COMPILE_DOMAIN
+	fi
+
+	echo \#define NetGuard_COMPILER \"`$CC -v 2>&1 | tail -n 1`\"
+	echo \#define NetGuard_STATIC $STATIC
+
+) > .tmpcompile
+
+# Only replace the real compile.h if the new one is different,
+# in order to preserve the timestamp and avoid unnecessary
+# recompilations.
+# We don't consider the file changed if only the date/time changed.
+
+#echo "Checking $TARGET"
+if [ -r $TARGET ] && \
+	grep -v 'NetGuard_VERSION\|NetGuard_COMPILE_TIME\|NetGuard_COMPILE_DATE' $TARGET > .tmpver.1 && \
+	grep -v 'NetGuard_VERSION\|NetGuard_COMPILE_TIME\|NetGuard_COMPILE_DATE' .tmpcompile > .tmpver.2 && \
+	cmp -s .tmpver.1 .tmpver.2; then
+	rm -f .tmpcompile
+else
+	echo "Updated $TARGET"
+	mv -f .tmpcompile $TARGET
+fi
+
+rm -f .tmpver.1 .tmpver.2
+

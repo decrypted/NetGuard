@@ -1,0 +1,91 @@
+#***************************************************************************
+#*   NetGuard General Tool Makefile                                      *
+#*                                                                         *
+#*   Copyright (c) 2011 Daniel Rudolph <daniel at net-guard net>           *
+#*                                                                         *
+#*                                                                         *
+#*   This program is released under a dual license.                        *
+#*   GNU General Public License for open source and educational use and    *
+#*   the Net-Guard Professional License for commercial use.                *
+#*   Details: http://www.net-guard.net/licence                             *
+#*                                                                         *
+#*   For open source and educational use:                                  *
+#*   This program is free software; you can redistribute it and/or modify  *
+#*   it under the terms of the GNU General Public License as published by  *
+#*   the Free Software Foundation; either version 2 of the License, or     *
+#*   (at your option) any later version.                                   *
+#*                                                                         *
+#*   This program is distributed in the hope that it will be useful,       *
+#*   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+#*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+#*   GNU General Public License for more details.                          *
+#*                                                                         *
+#*   You should have received a copy of the GNU General Public License     *
+#*   along with this program; if not, write to the                         *
+#*   Free Software Foundation, Inc.,                                       *
+#*   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+#*                                                                         *
+#*   For commercal use:                                                    *
+#*   visit http://www.net-guard.net for details if you need a commercal    *
+#*   license or not. All conditions are listed here:                       *
+#*                 http://www.net-guard.net/licence                        *
+#*                                                                         *
+#*   If you are unsure what licence you can use you should take            *
+#*   the Net-Guard Professional License.                                   *
+#*                                                                         *
+#***************************************************************************
+
+ifeq ($(MODULENAME),) 
+	MODULENAME = $(TOOLNAME)
+endif
+
+COMPILEHGEN = ${NGDIR}scripts/mkcompile_h compile.h  "$(MODULENAME)" "$(UTS_MACHINE)" "$(CONFIG_SMP)" "$(CC) $(CFLAGS)" "$(STATIC_LIB)"
+
+ifeq ($(TOOLDEP),) 
+	TOOLDEP = 
+endif
+
+include $(NGDIR)/mk/MakeAutoDepHeader
+
+#also build compile h when module compiles not only if deps get created
+all:	tools
+
+tools: $(TOOLNAME)
+
+compile.h::
+	@$(SHELL) ${COMPILEHGEN}
+
+
+ifeq "$(STATIC_TOOL_LIB)" "1"
+
+$(NGDIR)shared/libnetguard.a: 
+	@echo -e $(EMPHSTART)"Building static libnetguard.."$(EMPHSTOP)
+	@$(MAKE) -C $(NGDIR)/shared -f Makefile.static
+
+$(TOOLNAME): $(NGDIR)shared/libnetguard.a ${TOOLDEP} compile.h $(AUTODEP_CFiles:.c=.o) $(AUTODEP_CPPFiles:.cpp=.o)
+	@echo -e $(EMPHSTART)"-->Linking to $(TOOLNAME) file $@"$(EMPHSTOP)
+	$(CPPL) -o $@ $(AUTODEP_CFiles_Objects) $(AUTODEP_CPPFiles_Objects) ${TOOLDEP} $(NGDIR)shared/libnetguard.a -ldl -L$(NGDIR) ${LIBSUSED}
+	@echo -e $(EMPHSTART)"-->Softlink tool $@ to $(call absfilename,$(NGDIR)) "$(EMPHSTOP)
+	@$(call INSTALLFILE,$@,$(NGDIR)) 
+
+else
+
+$(NGDIR)shared/libnetguard.so.0: 
+	@echo -e $(EMPHSTART)"Building dynamic libnetguard.."$(EMPHSTOP)
+	@$(MAKE) -C $(NGDIR)/shared -f Makefile.dynamic
+
+$(TOOLNAME): $(NGDIR)shared/libnetguard.so.0 $(AUTODEP_CFiles:.c=.o) compile.h $(AUTODEP_CPPFiles:.cpp=.o)
+	@echo -e $(EMPHSTART)"-->Linking to $(TOOLNAME) file $@"$(EMPHSTOP)
+	$(CPPL) -o $@ $(AUTODEP_CFiles_Objects) $(AUTODEP_CPPFiles_Objects) -ldl -L$(NGDIR) -lnetguard ${LIBSUSED}
+	@echo -e $(EMPHSTART)"-->Softlink tool $@ to $(call absfilename,$(NGDIR)) "$(EMPHSTOP)
+	@$(call INSTALLFILE,$@,$(NGDIR)) 
+endif
+
+dorelease:
+	@cp ./$(TOOLNAME) $(NGDIR)/release
+
+clean:
+	@echo -e $(EMPHSTART)"Cleaning up $(TOOLNAME)"$(EMPHSTOP)
+	@${RM} *.o *.bak *.d $(TOOLNAME) $(NGDIR)$(TOOLNAME)
+
+include $(NGDIR)/mk/MakeAutoDepFooter

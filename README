@@ -1,0 +1,153 @@
+
+THE BASICS
+
+NetGuard is written in C++ and make use of some advanced c++ features like inlining and the Standard Template Library. It was also written in pure c for a start but there was no measurable performance drain using c++ - its quite the oppite it got better. Using std::hashmaps and other indexes make sure the program outperform any handcrafted c algorithm of mine before. 
+
+NetGuard is a very modular network analyzing tool. Right now NG knows about 4 module types which all are derivates from the NetGuard_Module. All Module Types can be loaded several times into a NetGuard instance at once.
+
+-	NetGuard_Input_Module
+Module to provide all other modules with network packages 
+Example: input_ring - get packages using a memory mapped network socket buffer
+-	NetGuard_General_Module
+simple module which see all packages reported from NetGuard_Input_Module modules  loaded
+Example: general_accounting
+-	NetGuard_User_Module	
+Same as NetGuard_General_Module but additionaly already link each package reported to a user - to have such package seeing data you need a general NetGuard_General_Module which assign a user to each package it see (best using User_Data_Tools) and then send the package *with* the assigned user to the NetGuard_User_Module instances (NetGuard_ModuleLoader_Base::GetPointer()->broadcast_user_packet)
+This module type is somewhat the default one you should use to implement your own modules and you want to monitor the packages user related.
+Examples: user_example, user_limit, user_filesharing_detection
+
+-	NetGuard_Command_Input_Module
+A module that allow the administrator to interact with NetGuard. This means send the control messages NetGuard also uses internally directly to the program.
+Examples: command_input_example, command_input_pipe
+
+
+
+
+
+THE NETGUARD COMMANDS
+
+NetGuard internally works with sending commands. Each module can send out messages for the other modules and vice versa. Every module which might want to react to the messages is allowed to do so.
+All messages arrive at got_input at the module instance. Commands can be send with NetGuard_ModuleLoader_Base::send_cmd or directly injected (got_input) in the module the command is for (for example the MainModule which distribute it to the others also - the instance is passed on init - more about it on Module Loading)
+
+NOTE: please keep in mind that all processing is serialized and is blocking all actions until its processes - make sure you fork if your module need some time to process a command
+
+
+
+
+
+THE NETGUARD CONTROL MESSAGES
+
+This is a program internal only command structure for commands that are not accessible from  the outside. It can also be used to transport much more structured data compared to the commands using the ConfigData class.
+Example: user_shutdown
+USAGE: NetGuard_ModuleLoader_Base::send_cmsg(NULL,"user_shutdown",NULL,u_data);
+
+
+NOTE: please keep in mind that all processing is serialized and is blocking all actions until its processes - make sure you fork if your module need some time to process a command
+
+
+
+
+
+MODULE LOADING
+
+Module loading is done after the start of the NetGuard MainModule which is a NetGuard_General_Module itself.  On Construction this module will create the module handler instance of NetGuard_ModuleLoader which can be always referred to with the singletons implemented in NetGuard_ModuleLoader_Base. After the basic startup of the MainModule it will enter and keep running in NetGuard_Main::main_loop which is the main heartbeat of NetGuard. 
+
+
+The NetGuard_ModuleLoader_Base singleton worth mentioning, as the singleton can be used for everything like:
+-	broadcast a new package from any source
+-	broadcast a new command from any source
+-	broadcast a new control message
+-	log an error/report messages (some tool functions implemented to make that even more easy)
+-	load/unload modules 
+-	get the current time (to not have a user/kernel space switch on each need - auto refreshed)
+-	get the instance of the MainModule (not needed as this is also passed on module init)
+
+
+Module Init
+For each module loaded the function init get called on the new instance. If it fails the module get unloaded again. A NetGuard_Config is passed which contain all config options present at this time and some default variables like:
+-	root_module : pointer to the MainModule
+-	module_loader: the NetGuard_ModuleLoader instance itself
+-	global_ip_filter: a pointer to the global NetGuard_Global_IP_Filter
+-	global_cfg: a pointer to the global NetGuard GlobalCFG
+-	state_handler: a pointer to the global NetGuard NetGuard_State_Handler which allow to change state 
+-	module_<xy>: all pointers to all already loaded modules addressed with the name xy
+
+Also to mention that all parameters are added in that NetGuard_Config instance who are currently in the module_initparams. This is not to be confused with the global_cfg which is a separate NetGuard_Config instance on its own and not just some entries in the NetGuard_Config passed on init.
+
+
+
+
+
+NETGUARD STATES
+
+NetGuard is running a global instance of a NetGuard_State_Handler which manage all user states. If its not used by any of your running modules it will also not mockup. You could call it a design flaw of the current implementation but this State_Handler is branded into the NetGuard binary. 
+
+Good news is - you could register your own states on the state handler with register_state. Inherit a NetGuard_State and make sure you fill out the preconditions and actions right for all possible transitions. Also make sure you adopt the present default states (valid_from, valid_to fields) where needed or simply don't use that states at all.
+Default states are: unkown, disabled, learn and enabled
+All states are identified with their names always, so as you can imagine they are unique for one NetGuard_State_Handler and the NetGuard_State_Map states in there.
+
+Only left question is - what happens if I want to implement how a state transitions takes place. You need to register your own NetGuard_User_State_Change_Execution at register_exec . The already implemented NetGuard_User_SCE_Default  does nearly nothing . As the states (clear_registerd_states) there is also a function clear_registerd_exec to get rid of all registered NetGuard_User_State_Change_Execution. 
+NOTE: use the clear functions with cause - you have to be sure all modules already loaded still have everything they need on the states side - more on NETGUARD STARTUP
+
+
+
+
+
+HOW TO BUILD NETGUARD
+
+If you want to build it on a debian system '>apt-get install make g++' should make sure you have all the libs and headers you need (on a sarge system for sure). 
+>make
+To build the stats2mysql tools you also need libmysql headers ('>apt-get install libmysqlclient12-dev') and to build the maconoff tool you also need the libsnmp headers ('>apt-get install libsnmp5-dev ').
+
+Other useful commands:
+>make all : build all, also tools
+>make tools : build tools, only
+>make release : build stripped release versions of netguard into ./release
+>make stripped : build all stuff as stripped versions
+
+
+Hint: You can disable modules by creating a disabled dir within it. Also try '>make help'
+Debian Packages: make g++ libsnmp5-dev libmysqlclient12-dev
+
+Advanced:
+Build with make OPT=1 to set optimized compiler flags
+Build config is in mk/Makeconf some examples:
+-	STATIC_LIB - remove to build netguard lib as dynamic
+-	Set your own CCFLAGS, CPP Flags
+
+
+
+
+
+NETGUARD STARTUP
+
+On start NetGuard will read a .netguardrc on the very same directory it was started in. All lines of this files are interpreted as NetGuard commands (lines starting with # are ignored) and passed to the got_input functions of the modules. This file have to bootstrap NetGuard as without any module loaded it does basically nothing but running in an endless loop and waiting for ticks to flyby ;-)
+
+How could this look like:
+#file .netguardrc
+module_initparams_add control_pipe /netguard
+module_load ./libcommand_input_pipe.so
+
+If you have this in the file you can from then on send commands to the /netguard pipe. 
+like '>echo help > /netguard'
+
+A maybe incomplete list of global variables used can be found in GlobalCFG.txt.
+
+
+
+
+
+TODO
+
+-	double check if all old c code is gone and was replaced
+-	enhance/implement log filters
+
+There is not much left to do except writing own modules for whatever reason you possibly feel in the need to do so. 
+
+Long-term maybes:
+-	IPV6
+-	a kernel version of NetGuard directly linking in iptables to also make it possible to drop packages. 
+
+
+
+>Daniel

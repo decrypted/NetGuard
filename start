@@ -1,0 +1,4 @@
+#!/bin/sh
+#netguard script
+#Copyright (c) 2011 Daniel Rudolph <daniel at net-guard net>
+export LD_LIBRARY_PATH=./ && ./netguard $@

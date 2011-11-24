@@ -1,0 +1,4 @@
+#/bin/sh
+export EDITOR
+export LD_LIBRARY_PATH=./
+gdb ./netguard

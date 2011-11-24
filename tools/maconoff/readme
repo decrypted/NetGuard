@@ -1,0 +1,19 @@
+to keep the state consistent some rules are obeyed
+
+enable without mac enable the port
+with mac it only add the mac 
+IF the port was emtpy (no mac learned mac = 1 and admin state down) then it enable the port else the admin state stay the same
+
+learn always enable the port 
+	example why needed: else it bug with admin disabled port 2 macs 1 learned -> forget learn without mac just maxmacs++ with mac its like enable
+
+disable without mac given set admin state on disable
+disable without with mac given disable this mac on the port - admin state is kept 
+	remark: if the port get empty it get disabled due to cisco software works like that - you can not set maxmacs to 0
+
+forget without mac never disable the port just maxmacs— if not possible it fail but keep state of the port the same
+forget with mac its like disable with this mac
+
+reenable reset the port state but don’t change it states when its done
+
+clearmacs clear all learned macs -> new can be learned depending on newmacs and admin state

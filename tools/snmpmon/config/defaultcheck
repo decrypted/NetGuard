@@ -1,0 +1,22 @@
+defaultcheck () 
+{
+    if [ $ifInErrors -ne 0 ] ; then
+      echo "$HOST Port $port ($ifAlias): In Errors: $ifInErrors"
+    fi
+    if [ $ifOutErrors -ne 0 ] ; then
+      echo "$HOST Port $port ($ifAlias): Out Error $ifOutErrors"
+    fi
+}
+
+
+hostcheck ()
+{
+    mydummyvalue=""
+    echo "$HOST cpmCPUTotal5min: $cpmCPUTotal5min"
+    echo "$HOST uptime: $sysUpTime"
+}
+
+portcheck ()
+{
+    mydummyvalue=""
+}

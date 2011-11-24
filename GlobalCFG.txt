@@ -1,0 +1,40 @@
+Possible Values:
+
+General:
+config_path
+state_filename
+
+MOF Management 
+mof.roomcheckboundry	-80
+mof.dbfile		./db.txt
+mof.maconoff		./maconoff
+mof.failure_state	failure
+
+Default States
+state.unkown	unkown
+state.disabled	disabled
+state.enabled	enabled
+state.learn	learn
+state.faliure	faliure
+state._init	unkown
+
+User Limit
+user_limit.disable_ext_state_week		disabled
+user_limit.disable_ext_state_week_msg		over the external week limit
+user_limit.disable_int_state_week		disabled
+user_limit.disable_int_state_week_msg		over the internal week limit
+
+user_limit.disable_ext_state_day		disabled
+user_limit.disable_ext_state_day_msg		over the external daily limit
+user_limit.disable_int_state_day		disabled
+user_limit.disable_int_state_day_msg		over the internal daily limit
+
+user_limit.disable_ext_state_overall		disabled
+user_limit.disable_ext_state_overall_msg	over the external overall limit
+user_limit.disable_int_state_overall		disabled
+user_limit.disable_int_state_overall_msg	over the internal overall limit
+
+//user_limit.failure_state			failure
+
+
+
