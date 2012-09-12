@@ -43,7 +43,7 @@
 //#define passwdfile
 
 //#define debug
-#define debugmode
+//#define debugmode
 
 #define do_setuid 1000
 
