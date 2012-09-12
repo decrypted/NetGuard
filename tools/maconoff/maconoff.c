@@ -1,7 +1,7 @@
 /***************************************************************************
  *   MacOnOff                                                              *
  *                                                                         *
- *   Copyright (c) 2003-2011 Daniel Rudolph <daniel at net-guard net>      *
+ *   Copyright (c) 2003-2012 Daniel Rudolph <daniel at net-guard net>      *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -37,13 +37,13 @@
 #include "compile.h"
 
 #define MAXDUMPQUERRYLENGTH 1024
-#define AUTHOR  "Daniel Rudolph 200[34567] (maconoff@net-guard.net)\nsnmp code based on code from: Gregor Jasny"
+#define AUTHOR  "Daniel Rudolph 200[3,4,5,6,7,12] (maconoff@bsolut.com)\nsnmp code based on code from: Gregor Jasny"
 
 //define passwdfile means get password from a file
 //#define passwdfile
 
 //#define debug
-//#define debugmode
+#define debugmode
 
 #define do_setuid 1000
 
@@ -56,6 +56,11 @@ const char * defaultfilename = "maconoff.conf";
 static char *community = "$ecUr1T4+3";
 #endif
 
+//set this to 1 if you want to have the wh8 mode in which disable changes the vlan of a port
+int wh8mode = 1;
+#define wh8_enable_vlan 2
+#define wh8_disable_vlan 5
+
 static char *nullmac   = "00:00:00:00:00:00";
 const char *q_portname = "enterprises.9.2.2.1.1.28.%d";
 const char* switches[]={"172.17.1.1","172.17.1.2","172.17.1.3","172.17.1.4",
@@ -66,7 +71,7 @@ const char* switches[]={"172.17.1.1","172.17.1.2","172.17.1.3","172.17.1.4",
 
 //ronny...added WRITEDB
 typedef enum { UNKOWN, DUMP, SET , FIND, VALUE, DOWRITE, WRITEDB,INFO} pmode_t;
-typedef enum { DISABLE, ENABLE, LEARN, FORGET, REENABLE, CLEARMACS, VOICE} state_t;
+typedef enum { DISABLE, ENABLE, LEARN, FORGET, REENABLE, CLEARMACS, VOICE, VLAN} state_t;
 typedef enum { DUMPPORT, DUMPMACS} dumpstate_t;
 
 
@@ -87,6 +92,7 @@ const t_query_a_entry s_queries[] =
 	{ "May Learn Address","enterprises.9.9.87.1.4.1.1.5.0.%d", qtype_typ, {"","yes","no",NULL} },
 	{ "PortSecurity\t","enterprises.9.9.315.1.2.1.1.1.%d", qtype_typ, {"","enabled","disabled",NULL} },
 	{ "Voice VLAN ID\t","enterprises.9.9.87.1.4.1.1.37.0.%d", qtype_voipvlan, {NULL} },
+	{ "VLAN ID\t\t","enterprises.9.9.68.1.2.2.1.2.%d", qtype_int, {NULL} },
 	{ "PS (Status)\t","enterprises.9.9.315.1.2.1.1.2.%d", qtype_typ, {"","secureup","securedown", "shutdown",NULL}  },
 	{ "PS (Max Macs)\t","enterprises.9.9.315.1.2.1.1.3.%d", qtype_int, { NULL} },
 	{ "PS (Macs learned)","enterprises.9.9.315.1.2.1.1.4.%d", qtype_int, { NULL} },
@@ -108,9 +114,12 @@ void usage(char *progname,char *error) {
 	#ifdef passwdfile
 	fprintf(stderr," %s -c filename (set password file - default: maconoff.conf)\n", progname);
 	#endif
+	if (wh8mode)
+	fprintf(stderr,"\n**Running in WH Mode! Enable/Disable will set the vlan - but not the alias commands (ydisable, xdisable) **\n\n");
+
 	fprintf(stderr,"select mode %s  -m set|dump|find|value|write|info \n\n", progname);
 	fprintf(stderr,"set: \n");
-	fprintf(stderr,"  %s -m set -s disable|enable|learn|forget|reenable|clearmacs|voice\n\n", progname);
+	fprintf(stderr,"  %s -m set -s disable|xdisable|enable|yenable|learn|forget|reenable|clearmacs|voice|svlan\n\n", progname);
 	fprintf(stderr,"  reenable|clearmacs:\n");
 	fprintf(stderr,"	%s -m set (-i ip -p port | -a macadress | -r room) -s reenable|clearmacs\n", progname);
 	fprintf(stderr," 		reenable: shut down port and enable it again\n");
@@ -127,6 +136,9 @@ void usage(char *progname,char *error) {
 	fprintf(stderr,"  voice:\n");
 	fprintf(stderr,"	%s -m set ( (-i ip -p port) | -a macadress | -r room ) -s voice -v value\n", progname);
 	fprintf(stderr,"		value: VLan ID [0-4096|off|on] off=4096 on=602\n\n" );
+	fprintf(stderr,"  svlan:\n");
+	fprintf(stderr,"	%s -m set ( (-i ip -p port) | -a macadress | -r room ) -s vlan -v value\n", progname);
+	fprintf(stderr,"		value: VLan ID [0-4096]\n\n" );
 	fprintf(stderr,"value:\n");
 	fprintf(stderr,"	%s -m value [-i ip [-p port]] -o oid without port -v value\n", progname);
 	fprintf(stderr," 		use with CAUTION !! set a value to an given snmp oid\n\n");
@@ -894,6 +906,38 @@ void setvoicevlan(char *ip, int port, char *value) {
     free(query);
 }
 
+void setvlan(char *ip, int port, char *value) {
+    char *voicev_q = "enterprises.9.9.68.1.2.2.1.2.%d";
+    char *query;
+    char *tmpresult;
+
+    query = calloc(strlen(voicev_q)+10,sizeof(char));
+    sprintf(query,voicev_q,port);
+    tmpresult = doset(ip,query,value);
+    if (tmpresult) free(tmpresult); else exit_w_error(EXIT_FAILURE);
+    free(query);
+}
+
+void dodisable(char *ip, int port, char *mac){
+  if (wh8mode) {
+    char *q = "%d";
+    char *tmp;
+    tmp = calloc(10,sizeof(char));
+    sprintf(tmp,q,wh8_disable_vlan);
+    setvlan(ip,port,tmp);
+  } else disable(ip,port,mac);
+}
+
+void doenable(char *ip, int port, char *mac){
+  if (wh8mode) {
+    char *q = "%d";
+    char *tmp;
+    tmp = calloc(10,sizeof(char));
+    sprintf(tmp,q,wh8_enable_vlan);
+    setvlan(ip,port,tmp);
+  } else enable(ip,port,mac);
+}
+
 void reenable(char *ip, int port) {
     char *admin_q = "interfaces.2.1.7.%d";
     char *ports_q = "enterprises.9.9.315.1.2.1.1.1.%d";
@@ -1149,12 +1193,24 @@ int main (int argc, char *argv[]) {
     	                    #endif
 	                        newState = FORGET;
     	                    break;
+	                    case 'y':
+	                	//we want the normal enable!
+	                	wh8mode = 0;
+	                    	#ifdef debugmode
+	                        printf("NewState %s found.\n","ENABLE - WH8 MODE OVERRIDE");
+	                        #endif
 	                    case 'e':
 	                    	#ifdef debugmode
 	                        printf("NewState %s found.\n","ENABLE");
 	                        #endif
 	                        newState = ENABLE;
 	                        break;
+                        case 'x':
+                    		//we want the normal disable command!
+	                	wh8mode = 0;
+	                    	#ifdef debugmode
+	                        printf("NewState %s found.\n","DISABLE - WH8 MODE OVERRIDE");
+	                        #endif
                         case 'd':
                             #ifdef debugmode
     	                    printf("NewState %s found.\n","DISABLE");
@@ -1166,6 +1222,12 @@ int main (int argc, char *argv[]) {
 	                        printf("NewState %s found.\n","VOICE");
 	                        #endif
 	                        newState = VOICE;
+                        	break;
+	                    case 's':
+	                    	#ifdef debugmode
+	                        printf("NewState %s found.\n","SVLAN");
+	                        #endif
+	                        newState = VLAN;
                         	break;
     	                case 'r':
         	                if (strlen(status) < 3) usage( argv[0], NULL);
@@ -1375,7 +1437,7 @@ int main (int argc, char *argv[]) {
                         usage(argv[0],"ip missing\n");
                     if (!port)
                         usage(argv[0],"port missing\n");
-                    enable(ip,portNum,mac);
+                    doenable(ip,portNum,mac);
                     break;
                 case DISABLE:
                     if (!ip ||!port)
@@ -1385,14 +1447,14 @@ int main (int argc, char *argv[]) {
                         if (findmac(mac,&tmp,&portNum,&tmp2) ==1) {
                             printf("Mac found at  -i %s -p %i  \tname: %s\n",tmp,portNum,tmp2);
                             printf("Setting new ip (%s) and port (%i)\n",tmp,portNum);
-                            disable(tmp,portNum,mac);
+                            dodisable(tmp,portNum,mac);
                             free(tmp);
                             free(tmp2);
                         } else {
                             printf("Mac not found \n");
                             exit(1);
                         }
-                    } else  disable(ip,portNum,mac);
+                    } else dodisable(ip,portNum,mac);
                     break;
                 case FORGET:
                     if (!ip)
@@ -1468,6 +1530,15 @@ int main (int argc, char *argv[]) {
                     if (!strcmp(value,"on"))  strcpy(value,"602");
                     if (!strcmp(value,"off")) strcpy(value,"4096");
                     setvoicevlan(ip,portNum,value);
+                    break;
+                case VLAN:
+                    if (!ip)
+                        usage(argv[0],"ip missing\n");
+                    if (!port)
+                        usage(argv[0],"port missing\n");
+                    if (value==NULL)
+                        usage(argv[0],"value missing\n");
+                    setvlan(ip,portNum,value);
                     break;
         		default:
             		usage(argv[0],NULL);
